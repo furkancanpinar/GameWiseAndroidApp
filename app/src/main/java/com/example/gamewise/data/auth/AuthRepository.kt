@@ -1,9 +1,16 @@
 package com.example.gamewise.data.auth
 
+import android.net.Uri
+import android.util.Log
 import com.example.gamewise.network.EmailRequest
 import com.example.gamewise.network.EmailService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.storage.FirebaseStorage
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
@@ -11,22 +18,49 @@ import retrofit2.converter.gson.GsonConverterFactory
 class AuthRepository {
 
     private val firebaseAuth = FirebaseAuth.getInstance()
-
-    // --- EMAILJS CONFIGURATION ---
-    // Place your EmailJS credentials here
-    private val EMAILJS_SERVICE_ID = "YOUR_SERVICE_ID"
-    private val EMAILJS_TEMPLATE_ID = "YOUR_TEMPLATE_ID"
-    private val EMAILJS_PUBLIC_KEY = "YOUR_PUBLIC_KEY"
-    // -----------------------------
+    private val firebaseStorage = FirebaseStorage.getInstance()
 
     private val retrofit = Retrofit.Builder()
-        .baseUrl("https://api.emailjs.com/")
+        .baseUrl(EmailService.BASE_URL)
         .addConverterFactory(GsonConverterFactory.create())
         .build()
 
     private val emailService = retrofit.create(EmailService::class.java)
 
     fun getCurrentUser(): FirebaseUser? = firebaseAuth.currentUser
+
+    fun observeUser(): Flow<FirebaseUser?> = callbackFlow {
+        val listener = FirebaseAuth.AuthStateListener { auth ->
+            trySend(auth.currentUser)
+        }
+        firebaseAuth.addAuthStateListener(listener)
+        awaitClose { firebaseAuth.removeAuthStateListener(listener) }
+    }
+
+    suspend fun updateProfile(name: String?, photoUri: Uri?): Result<Unit> {
+        val user = firebaseAuth.currentUser ?: return Result.failure(Exception("No user logged in"))
+        return try {
+            val profileUpdates = UserProfileChangeRequest.Builder()
+            name?.let { profileUpdates.displayName = it }
+            photoUri?.let { profileUpdates.photoUri = it }
+            user.updateProfile(profileUpdates.build()).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
+
+    suspend fun uploadProfileImage(uri: Uri): Result<Uri> {
+        val user = firebaseAuth.currentUser ?: return Result.failure(Exception("No user logged in"))
+        return try {
+            val storageRef = firebaseStorage.reference.child("avatars/${user.uid}.jpg")
+            storageRef.putFile(uri).await()
+            val downloadUrl = storageRef.downloadUrl.await()
+            Result.success(downloadUrl)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 
     suspend fun login(email: String, pass: String): Result<FirebaseUser> {
         return try {
@@ -41,31 +75,38 @@ class AuthRepository {
         return try {
             val result = firebaseAuth.createUserWithEmailAndPassword(email, pass).await()
             val user = result.user!!
-            
-            // Send Verification Email via EmailJS
-            sendVerificationEmail(email)
-            
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)
         }
     }
 
-    private suspend fun sendVerificationEmail(email: String) {
+    suspend fun sendOtpEmail(email: String, otp: String): Boolean {
+        // template_params must match the placeholders in your EmailJS template.
+        // For example, if your template uses {{otp_code}} and {{to_email}}, 
+        // the map below will fill those values.
         val params = mapOf(
             "to_email" to email,
-            "message" to "Welcome to GameWise! Please verify your account by clicking the link in your dashboard."
+            "verification_code" to otp,
+            "from_name" to "GameWise"
         )
         val request = EmailRequest(
-            service_id = EMAILJS_SERVICE_ID,
-            template_id = EMAILJS_TEMPLATE_ID,
-            user_id = EMAILJS_PUBLIC_KEY,
-            template_params = params
+            serviceId = EmailService.SERVICE_ID,
+            templateId = EmailService.TEMPLATE_ID,
+            userId = EmailService.PUBLIC_KEY,
+            accessToken = EmailService.PRIVATE_KEY,
+            templateParams = params
         )
-        try {
-            emailService.sendVerificationEmail(request)
+        return try {
+            val response = emailService.sendVerificationEmail(request)
+            if (!response.isSuccessful) {
+                val errorBody = response.errorBody()?.string()
+                Log.e("AuthRepository", "EmailJS Error: ${response.code()} - $errorBody")
+            }
+            response.isSuccessful
         } catch (e: Exception) {
-            e.printStackTrace()
+            Log.e("AuthRepository", "EmailJS Exception", e)
+            false
         }
     }
 

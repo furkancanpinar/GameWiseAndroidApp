@@ -19,6 +19,7 @@ sealed class Screen(val route: String) {
     object AiAssistant : Screen("ai_assistant")
     object Support : Screen("support")
     object Settings : Screen("settings")
+    object Profile : Screen("profile")
 }
 
 @Composable
@@ -49,6 +50,17 @@ fun GameWiseNavGraph(
         composable(Screen.TimeSpent.route) { TimeSpentScreen() }
         composable(Screen.AiAssistant.route) { AiAssistantScreen() }
         composable(Screen.Support.route) { SupportScreen() }
-        composable(Screen.Settings.route) { SettingsScreen() }
+        composable(Screen.Settings.route) { 
+            SettingsScreen(onNavigateToProfile = { navController.navigate(Screen.Profile.route) }) 
+        }
+        composable(Screen.Profile.route) { 
+            ProfileScreen(
+                onSignOut = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                }
+            )
+        }
     }
 }

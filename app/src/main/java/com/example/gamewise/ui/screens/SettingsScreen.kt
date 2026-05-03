@@ -1,5 +1,6 @@
 package com.example.gamewise.ui.screens
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -8,12 +9,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
-data class SettingItem(val name: String)
+data class SettingItem(val name: String, val onClick: () -> Unit = {})
 
 @Composable
-fun SettingsScreen() {
+fun SettingsScreen(onNavigateToProfile: () -> Unit = {}) {
     val settings = listOf(
-        SettingItem("Profile Settings"),
+        SettingItem("Profile Settings", onClick = onNavigateToProfile),
         SettingItem("Notification Preferences"),
         SettingItem("Privacy Control"),
         SettingItem("Theme (Light/Dark)")
@@ -22,7 +23,10 @@ fun SettingsScreen() {
     Column(modifier = Modifier.fillMaxSize()) {
         LazyColumn(modifier = Modifier.padding(16.dp)) {
             items(settings) { setting ->
-                ListItem(headlineContent = { Text(setting.name) })
+                ListItem(
+                    headlineContent = { Text(setting.name) },
+                    modifier = Modifier.clickable { setting.onClick() }
+                )
                 HorizontalDivider()
             }
         }

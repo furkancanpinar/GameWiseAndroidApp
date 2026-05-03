@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_number": "1089492043866",
+    "firebase_url": "https://gamewise1-3c18b-default-rtdb.europe-west1.firebasedatabase.app",
+    "project_id": "gamewise1-3c18b",
+    "storage_bucket": "gamewise1-3c18b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1089492043866:android:eab9b8285d3a1850e8b063",
+        "android_client_info": {
+          "package_name": "com.example.gamewise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDgMzIZT2_ZbrQVjiuOGHJGRS7GDQuTacE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

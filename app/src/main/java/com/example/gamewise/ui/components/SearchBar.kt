@@ -27,29 +27,6 @@ data class SearchResult(
     val icon: ImageVector
 )
 
-@Composable
-fun SearchBar(
-    query: String,
-    onQueryChange: (String) -> Unit,
-    placeholder: String,
-    modifier: Modifier = Modifier
-) {
-    OutlinedTextField(
-        value = query,
-        onValueChange = onQueryChange,
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(16.dp),
-        placeholder = { Text(placeholder) },
-        leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
-        singleLine = true,
-        shape = RoundedCornerShape(12.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = GameWisePurple,
-            unfocusedBorderColor = Color.Gray
-        )
-    )
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +46,7 @@ fun GameWiseSearchBar(
         SearchResult("Assessment", "Take a gaming assessment - Skills test", Screen.Assessment.route, Icons.Default.Checklist),
         SearchResult("Settings", "App preferences - Notifications and account", Screen.Settings.route, Icons.Default.Settings),
         SearchResult("Time Spent", "Track your gaming time - Usage statistics", Screen.TimeSpent.route, Icons.Default.Timer),
-        // Adding some context-based results
+
         SearchResult("Game Tips", "Find tips in GameWAi", Screen.AiAssistant.route, Icons.Default.TipsAndUpdates),
         SearchResult("Account Safety", "Manage in Settings", Screen.Settings.route, Icons.Default.Security),
         SearchResult("Contact Us", "Reach out in Support", Screen.Support.route, Icons.Default.Email)

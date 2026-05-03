@@ -12,6 +12,7 @@ sealed class Screen(val route: String) {
     object Login : Screen("login")
     object SignUp : Screen("signup")
     object Home : Screen("home")
+    object Game : Screen("game")
     object Ideas : Screen("ideas")
     object Assessment : Screen("assessment")
     object TimeSpent : Screen("time_spent")
@@ -42,6 +43,7 @@ fun GameWiseNavGraph(
             )
         }
         composable(Screen.Home.route) { HomeScreen() }
+        composable(Screen.Game.route) { GameScreen() }
         composable(Screen.Ideas.route) { IdeasScreen() }
         composable(Screen.Assessment.route) { AssessmentScreen() }
         composable(Screen.TimeSpent.route) { TimeSpentScreen() }

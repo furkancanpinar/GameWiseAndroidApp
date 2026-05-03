@@ -49,20 +49,21 @@ fun MainContainer() {
     // Define which screens should show the top bar and drawer
     val authenticatedScreens = listOf(
         Screen.Home.route,
+        Screen.Game.route,
         Screen.Ideas.route,
         Screen.Assessment.route,
         Screen.TimeSpent.route,
         Screen.AiAssistant.route,
         Screen.Support.route,
-        Screen.Settings.route,
-        Screen.Login.route,
-        Screen.SignUp.route
+        Screen.Settings.route
     )
 
+    val showTopBar = currentRoute in authenticatedScreens || currentRoute == Screen.Login.route || currentRoute == Screen.SignUp.route
     val showDrawer = currentRoute in authenticatedScreens
 
     val currentTitle = when (currentRoute) {
         Screen.Home.route -> "HOME"
+        Screen.Game.route -> "GAME"
         Screen.Ideas.route -> "IDEAS"
         Screen.Assessment.route -> "ASSESSMENT"
         Screen.TimeSpent.route -> "TIME SPENT"
@@ -74,55 +75,59 @@ fun MainContainer() {
         else -> "GAMEWISE"
     }
 
-    if (showDrawer) {
+    if (showTopBar) {
         ModalNavigationDrawer(
             drawerState = drawerState,
+            gesturesEnabled = showDrawer,
             drawerContent = {
-                ModalDrawerSheet(
-                    drawerContainerColor = GameWiseCoral,
-                    drawerContentColor = Color.Black
-                ) {
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(
-                        "GameWise Menu",
-                        modifier = Modifier.padding(16.dp),
-                        style = MaterialTheme.typography.titleLarge,
-                        color = Color.Black
-                    )
-                    
-                    val menuItems = listOf(
-                        Triple("Home", Icons.Default.Home, Screen.Home.route),
-                        Triple("Ideas", Icons.Default.Lightbulb, Screen.Ideas.route),
-                        Triple("Assessment", Icons.Default.Checklist, Screen.Assessment.route),
-                        Triple("Time Spent", Icons.Default.Timer, Screen.TimeSpent.route),
-                        Triple("GameWAi", Icons.Default.SmartToy, Screen.AiAssistant.route),
-                        Triple("Support", Icons.Default.SupportAgent, Screen.Support.route),
-                        Triple("Settings", Icons.Default.Settings, Screen.Settings.route)
-                    )
-
-                    menuItems.forEach { (title, icon, route) ->
-                        NavigationDrawerItem(
-                            icon = { Icon(icon, contentDescription = null) },
-                            label = { Text(title) },
-                            selected = currentRoute == route,
-                            onClick = {
-                                navController.navigate(route) {
-                                    popUpTo(Screen.Home.route) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                                scope.launch { drawerState.close() }
-                            },
-                            colors = NavigationDrawerItemDefaults.colors(
-                                unselectedContainerColor = Color.Transparent,
-                                selectedContainerColor = Color.White.copy(alpha = 0.3f),
-                                unselectedIconColor = Color.Black,
-                                selectedIconColor = Color.Black,
-                                unselectedTextColor = Color.Black,
-                                selectedTextColor = Color.Black
-                            ),
-                            modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                if (showDrawer) {
+                    ModalDrawerSheet(
+                        drawerContainerColor = GameWiseCoral,
+                        drawerContentColor = Color.Black
+                    ) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            "GameWise Menu",
+                            modifier = Modifier.padding(16.dp),
+                            style = MaterialTheme.typography.titleLarge,
+                            color = Color.Black
                         )
+
+                        val menuItems = listOf(
+                            Triple("Home", Icons.Default.Home, Screen.Home.route),
+                            Triple("Gaming", Icons.Default.SportsEsports, Screen.Game.route),
+                            Triple("Ideas", Icons.Default.Lightbulb, Screen.Ideas.route),
+                            Triple("Assessment", Icons.Default.Checklist, Screen.Assessment.route),
+                            Triple("Time Spent", Icons.Default.Timer, Screen.TimeSpent.route),
+                            Triple("GameWAi", Icons.Default.SmartToy, Screen.AiAssistant.route),
+                            Triple("Support", Icons.Default.SupportAgent, Screen.Support.route),
+                            Triple("Settings", Icons.Default.Settings, Screen.Settings.route)
+                        )
+
+                        menuItems.forEach { (title, icon, route) ->
+                            NavigationDrawerItem(
+                                icon = { Icon(icon, contentDescription = null) },
+                                label = { Text(title) },
+                                selected = currentRoute == route,
+                                onClick = {
+                                    navController.navigate(route) {
+                                        popUpTo(Screen.Home.route) { saveState = true }
+                                        launchSingleTop = true
+                                        restoreState = true
+                                    }
+                                    scope.launch { drawerState.close() }
+                                },
+                                colors = NavigationDrawerItemDefaults.colors(
+                                    unselectedContainerColor = Color.Transparent,
+                                    selectedContainerColor = Color.White.copy(alpha = 0.3f),
+                                    unselectedIconColor = Color.Black,
+                                    selectedIconColor = Color.Black,
+                                    unselectedTextColor = Color.Black,
+                                    selectedTextColor = Color.Black
+                                ),
+                                modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding)
+                            )
+                        }
                     }
                 }
             }
@@ -151,26 +156,30 @@ fun MainContainer() {
                                 
                                 Spacer(modifier = Modifier.weight(1f))
                                 
-                                GameWiseSearchBar(
-                                    onNavigate = { route ->
-                                        navController.navigate(route) {
-                                            popUpTo(Screen.Home.route) { saveState = true }
-                                            launchSingleTop = true
-                                            restoreState = true
+                                if (showDrawer) {
+                                    GameWiseSearchBar(
+                                        onNavigate = { route ->
+                                            navController.navigate(route) {
+                                                popUpTo(Screen.Home.route) { saveState = true }
+                                                launchSingleTop = true
+                                                restoreState = true
+                                            }
                                         }
-                                    }
-                                )
-                                
-                                Spacer(modifier = Modifier.weight(1f))
+                                    )
 
-                                IconButton(onClick = { /* Profile */ }) {
-                                    Icon(Icons.Default.AccountCircle, contentDescription = "Profile", tint = Color.Black, modifier = Modifier.size(32.dp))
+                                    Spacer(modifier = Modifier.weight(1f))
+
+                                    IconButton(onClick = { /* Profile */ }) {
+                                        Icon(Icons.Default.AccountCircle, contentDescription = "Profile", tint = Color.Black, modifier = Modifier.size(32.dp))
+                                    }
                                 }
                             }
                         },
                         navigationIcon = {
-                            IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                            if (showDrawer) {
+                                IconButton(onClick = { scope.launch { drawerState.open() } }) {
+                                    Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
+                                }
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = GameWisePurple)

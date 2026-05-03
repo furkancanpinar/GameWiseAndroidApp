@@ -13,14 +13,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.gamewise.ui.components.SearchBar
 import com.example.gamewise.ui.theme.GameWisePurple
 
 data class HomeFeature(val title: String, val icon: ImageVector, val desc: String)
 
 @Composable
 fun HomeScreen() {
-    var searchQuery by remember { mutableStateOf("") }
     val features = listOf(
         HomeFeature("Ideas", Icons.Default.Lightbulb, "Explore New Ideas"),
         HomeFeature("Assessment", Icons.Default.Checklist, "Take a Self Test"),
@@ -28,17 +26,7 @@ fun HomeScreen() {
         HomeFeature("Support", Icons.Default.SupportAgent, "Get Help Now")
     )
 
-    val filteredFeatures = features.filter {
-        it.title.contains(searchQuery, ignoreCase = true) || it.desc.contains(searchQuery, ignoreCase = true)
-    }
-
     Column(modifier = Modifier.fillMaxSize()) {
-        SearchBar(
-            query = searchQuery,
-            onQueryChange = { searchQuery = it },
-            placeholder = "Search dashboard..."
-        )
-
         Column(modifier = Modifier.padding(16.dp)) {
             Text(
                 "Welcome to GameWise",
@@ -60,7 +48,7 @@ fun HomeScreen() {
                 verticalArrangement = Arrangement.spacedBy(16.dp),
                 modifier = Modifier.fillMaxSize()
             ) {
-                items(filteredFeatures) { feature ->
+                items(features) { feature ->
                     FeatureCard(feature)
                 }
             }

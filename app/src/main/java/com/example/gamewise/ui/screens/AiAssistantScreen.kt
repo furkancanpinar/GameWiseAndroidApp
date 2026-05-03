@@ -7,14 +7,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.gamewise.ui.components.SearchBar
 import com.example.gamewise.ui.theme.GameWisePurple
 
 data class ChatMessage(val user: String, val message: String)
 
 @Composable
 fun AiAssistantScreen() {
-    var searchQuery by remember { mutableStateOf("") }
     val chatHistory = listOf(
         ChatMessage("User", "How do I start a new project?"),
         ChatMessage("GameWAi", "You can start by defining your goals first."),
@@ -22,13 +20,9 @@ fun AiAssistantScreen() {
         ChatMessage("GameWAi", "Practice and consistency are key.")
     )
 
-    val filteredChat = chatHistory.filter { it.message.contains(searchQuery, ignoreCase = true) }
-
     Column(modifier = Modifier.fillMaxSize()) {
-        SearchBar(query = searchQuery, onQueryChange = { searchQuery = it }, placeholder = "Search chat history...")
-
         LazyColumn(modifier = Modifier.padding(16.dp).weight(1f)) {
-            items(filteredChat) { chat ->
+            items(chatHistory) { chat ->
                 Column(modifier = Modifier.padding(vertical = 8.dp)) {
                     Text(chat.user, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, color = if(chat.user == "GameWAi") GameWisePurple else MaterialTheme.colorScheme.primary)
                     Text(chat.message)

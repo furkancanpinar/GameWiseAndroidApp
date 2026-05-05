@@ -32,10 +32,20 @@ fun ProfileScreen(
     val user by authRepository.observeUser().collectAsState(initial = authRepository.getCurrentUser())
     val scope = rememberCoroutineScope()
 
-    var displayName by remember(user) { mutableStateOf(user?.displayName ?: "") }
-    var photoUri by remember(user) { mutableStateOf<Uri?>(user?.photoUrl) }
+    var displayName by remember { mutableStateOf(user?.displayName ?: "") }
+    var photoUri by remember { mutableStateOf<Uri?>(user?.photoUrl) }
     var isUploading by remember { mutableStateOf(false) }
     var isEditingName by remember { mutableStateOf(false) }
+
+    // Sync state with user data when it changes externally
+    LaunchedEffect(user) {
+        if (!isEditingName) {
+            displayName = user?.displayName ?: ""
+        }
+        if (!isUploading) {
+            photoUri = user?.photoUrl
+        }
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -47,7 +57,9 @@ fun ProfileScreen(
                 if (uploadResult.isSuccess) {
                     val downloadUrl = uploadResult.getOrThrow()
                     authRepository.updateProfile(null, downloadUrl)
-                    photoUri = downloadUrl
+                    // Add a timestamp to the URI to force Coil to reload the image
+                    val bustedUri = Uri.parse(downloadUrl.toString() + "&t=${System.currentTimeMillis()}")
+                    photoUri = bustedUri
                 }
                 isUploading = false
             }

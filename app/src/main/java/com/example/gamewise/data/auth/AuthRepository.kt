@@ -7,7 +7,10 @@ import com.example.gamewise.network.EmailService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.Timestamp
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -19,6 +22,7 @@ class AuthRepository {
 
     private val firebaseAuth = FirebaseAuth.getInstance()
     private val firebaseStorage = FirebaseStorage.getInstance()
+    private val firestore = FirebaseFirestore.getInstance()
 
     private val retrofit = Retrofit.Builder()
         .baseUrl(EmailService.BASE_URL)
@@ -44,6 +48,19 @@ class AuthRepository {
             name?.let { profileUpdates.displayName = it }
             photoUri?.let { profileUpdates.photoUri = it }
             user.updateProfile(profileUpdates.build()).await()
+            user.reload().await() // Refresh the local user object to reflect changes
+            
+            // Also save to Firestore
+            val userData = mutableMapOf<String, Any>()
+            name?.let { userData["displayName"] = it }
+            photoUri?.let { userData["photoUrl"] = it.toString() }
+            
+            if (userData.isNotEmpty()) {
+                firestore.collection("users").document(user.uid)
+                    .set(userData, SetOptions.merge())
+                    .await()
+            }
+
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
@@ -75,6 +92,15 @@ class AuthRepository {
         return try {
             val result = firebaseAuth.createUserWithEmailAndPassword(email, pass).await()
             val user = result.user!!
+            
+            // Create initial user document in Firestore
+            val userData = mapOf(
+                "email" to email,
+                "uid" to user.uid,
+                "createdAt" to Timestamp.now()
+            )
+            firestore.collection("users").document(user.uid).set(userData).await()
+
             Result.success(user)
         } catch (e: Exception) {
             Result.failure(e)

@@ -1,10 +1,12 @@
 package com.example.gamewise.ui.auth
 
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.example.gamewise.data.auth.AuthRepository
@@ -18,9 +20,11 @@ fun LoginScreen(
 ) {
     val authRepository = remember { AuthRepository() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
+    var rememberMe by remember { mutableStateOf(true) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var isLoading by remember { mutableStateOf(false) }
 
@@ -52,6 +56,20 @@ fun LoginScreen(
             modifier = Modifier.fillMaxWidth()
         )
 
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = rememberMe,
+                onCheckedChange = { rememberMe = it },
+                colors = CheckboxDefaults.colors(checkedColor = GameWisePurple)
+            )
+            Text("Remember Me")
+        }
+
         if (errorMessage != null) {
             Text(errorMessage!!, color = MaterialTheme.colorScheme.error, modifier = Modifier.padding(top = 8.dp))
         }
@@ -69,6 +87,9 @@ fun LoginScreen(
                     val result = authRepository.login(email, password)
                     isLoading = false
                     if (result.isSuccess) {
+                        // Save "Remember Me" preference
+                        val sharedPrefs = context.getSharedPreferences("gamewise_prefs", Context.MODE_PRIVATE)
+                        sharedPrefs.edit().putBoolean("remember_me", rememberMe).apply()
                         onLoginSuccess()
                     } else {
                         errorMessage = result.exceptionOrNull()?.message ?: "Login failed"

@@ -1,5 +1,6 @@
 package com.example.gamewise
 
+import android.content.Context
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -50,6 +51,17 @@ fun MainContainer() {
     val scope = rememberCoroutineScope()
     val authRepository = remember { AuthRepository() }
     val user by authRepository.observeUser().collectAsState(initial = authRepository.getCurrentUser())
+    val context = androidx.compose.ui.platform.LocalContext.current
+    
+    // Logic to handle "Remember Me"
+    LaunchedEffect(Unit) {
+        val sharedPrefs = context.getSharedPreferences("gamewise_prefs", Context.MODE_PRIVATE)
+        val rememberMe = sharedPrefs.getBoolean("remember_me", false)
+        if (!rememberMe && authRepository.getCurrentUser() != null) {
+            authRepository.logout()
+        }
+    }
+
     var showProfileMenu by remember { mutableStateOf(false) }
 
     val navBackStackEntry by navController.currentBackStackEntryAsState()
@@ -185,8 +197,12 @@ fun MainContainer() {
                                         val currentUser = user
                                         IconButton(onClick = { showProfileMenu = true }) {
                                             if (currentUser?.photoUrl != null) {
+                                                // Use a key to force refresh
+                                                val imageKey = remember(currentUser.photoUrl) {
+                                                    "${currentUser.photoUrl}?t=${System.currentTimeMillis()}"
+                                                }
                                                 AsyncImage(
-                                                    model = currentUser.photoUrl,
+                                                    model = imageKey,
                                                     contentDescription = "Profile",
                                                     modifier = Modifier
                                                         .size(32.dp)
@@ -242,12 +258,18 @@ fun MainContainer() {
                 }
             ) { innerPadding ->
                 Box(modifier = Modifier.padding(innerPadding)) {
-                    GameWiseNavGraph(navController = navController)
+                    GameWiseNavGraph(
+                        navController = navController,
+                        isUserLoggedIn = user != null
+                    )
                 }
             }
         }
     } else {
         // Show login/signup without drawer
-        GameWiseNavGraph(navController = navController)
+        GameWiseNavGraph(
+            navController = navController,
+            isUserLoggedIn = user != null
+        )
     }
 }

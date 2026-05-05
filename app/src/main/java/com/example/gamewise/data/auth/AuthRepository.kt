@@ -10,6 +10,7 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.storage.storageMetadata
 import com.google.firebase.Timestamp
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -63,6 +64,7 @@ class AuthRepository {
 
             Result.success(Unit)
         } catch (e: Exception) {
+            Log.e("AuthRepository", "Profile update failed", e)
             Result.failure(e)
         }
     }
@@ -70,11 +72,21 @@ class AuthRepository {
     suspend fun uploadProfileImage(uri: Uri): Result<Uri> {
         val user = firebaseAuth.currentUser ?: return Result.failure(Exception("No user logged in"))
         return try {
-            val storageRef = firebaseStorage.reference.child("avatars/${user.uid}.jpg")
-            storageRef.putFile(uri).await()
+            Log.d("AuthRepository", "Starting upload for user: ${user.uid}")
+            // Using a directory-based path makes security rules much easier to manage
+            val storageRef = firebaseStorage.reference.child("avatars/${user.uid}/profile.jpg")
+            
+            // Add metadata to specify content type
+            val metadata = storageMetadata {
+                contentType = "image/jpeg"
+            }
+            
+            storageRef.putFile(uri, metadata).await()
             val downloadUrl = storageRef.downloadUrl.await()
+            Log.d("AuthRepository", "Upload successful: $downloadUrl")
             Result.success(downloadUrl)
         } catch (e: Exception) {
+            Log.e("AuthRepository", "Storage upload error", e)
             Result.failure(e)
         }
     }

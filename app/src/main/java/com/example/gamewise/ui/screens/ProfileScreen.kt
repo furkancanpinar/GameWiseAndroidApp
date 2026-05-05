@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
 import com.example.gamewise.data.auth.AuthRepository
 import com.example.gamewise.ui.theme.GameWisePurple
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -36,6 +37,9 @@ fun ProfileScreen(
     var photoUri by remember { mutableStateOf<Uri?>(user?.photoUrl) }
     var isUploading by remember { mutableStateOf(false) }
     var isEditingName by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
 
     // Sync state with user data when it changes externally
     LaunchedEffect(user) {
@@ -44,6 +48,13 @@ fun ProfileScreen(
         }
         if (!isUploading) {
             photoUri = user?.photoUrl
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            errorMessage = null
         }
     }
 
@@ -56,22 +67,41 @@ fun ProfileScreen(
                 val uploadResult = authRepository.uploadProfileImage(it)
                 if (uploadResult.isSuccess) {
                     val downloadUrl = uploadResult.getOrThrow()
-                    authRepository.updateProfile(null, downloadUrl)
-                    // Add a timestamp to the URI to force Coil to reload the image
-                    val bustedUri = Uri.parse(downloadUrl.toString() + "&t=${System.currentTimeMillis()}")
-                    photoUri = bustedUri
+                    val updateResult = authRepository.updateProfile(null, downloadUrl)
+                    
+                    if (updateResult.isSuccess) {
+                        // Force an immediate update
+                        val immediateUri = Uri.parse(downloadUrl.toString() + "&t=${System.currentTimeMillis()}")
+                        photoUri = immediateUri
+                        
+                        // Wait 5 seconds and then refresh again to ensure consistency
+                        scope.launch {
+                            delay(5000)
+                            val finalUri = Uri.parse(downloadUrl.toString() + "&t=${System.currentTimeMillis()}")
+                            photoUri = finalUri
+                        }
+                    } else {
+                        errorMessage = "Profile update failed: ${updateResult.exceptionOrNull()?.message}"
+                    }
+                } else {
+                    errorMessage = "Upload failed: ${uploadResult.exceptionOrNull()?.message}"
                 }
                 isUploading = false
             }
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbarHostState) },
+        containerColor = Color.Transparent // If you want to use the parent's background
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
         Box(
             modifier = Modifier
                 .size(120.dp)
@@ -211,4 +241,5 @@ fun ProfileScreen(
         
         Spacer(modifier = Modifier.height(32.dp))
     }
+}
 }

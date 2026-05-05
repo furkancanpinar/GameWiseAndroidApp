@@ -80,8 +80,8 @@ fun MainContainer() {
         Screen.Profile.route
     )
 
-    val showTopBar = currentRoute in authenticatedScreens || currentRoute == Screen.Login.route || currentRoute == Screen.SignUp.route
     val showDrawer = currentRoute in authenticatedScreens
+    val showTopBar = showDrawer || currentRoute == Screen.Login.route || currentRoute == Screen.SignUp.route
 
     val currentTitle = when (currentRoute) {
         Screen.Home.route -> "HOME"
@@ -98,12 +98,14 @@ fun MainContainer() {
         else -> "GAMEWISE"
     }
 
-    if (showTopBar) {
-        ModalNavigationDrawer(
-            drawerState = drawerState,
-            gesturesEnabled = showDrawer,
-            drawerContent = {
-                if (showDrawer) {
+    // Logic to wrap in Drawer only when needed
+    @Composable
+    fun ContentWrapper(content: @Composable (PaddingValues) -> Unit) {
+        if (showDrawer) {
+            ModalNavigationDrawer(
+                drawerState = drawerState,
+                gesturesEnabled = true,
+                drawerContent = {
                     ModalDrawerSheet(
                         drawerContainerColor = GameWiseCoral,
                         drawerContentColor = Color.Black
@@ -154,33 +156,28 @@ fun MainContainer() {
                         }
                     }
                 }
-            }
-        ) {
-            Scaffold(
-                topBar = {
-                    TopAppBar(
-                        title = {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                // Logo
-                                Icon(
-                                    painter = painterResource(id = R.drawable.alien),
-                                    contentDescription = "Logo",
-                                    tint = Color.Unspecified,
-                                    modifier = Modifier.size(32.dp)
-                                )
-                                Text(
-                                    text = currentTitle,
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
-                                )
-                                
-                                Spacer(modifier = Modifier.weight(1f))
-                                
-                                if (showDrawer) {
+            ) {
+                Scaffold(
+                    topBar = {
+                        TopAppBar(
+                            title = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    Icon(
+                                        painter = painterResource(id = R.drawable.alien),
+                                        contentDescription = "Logo",
+                                        tint = Color.Unspecified,
+                                        modifier = Modifier.size(32.dp)
+                                    )
+                                    Text(
+                                        text = currentTitle,
+                                        color = Color.White,
+                                        style = MaterialTheme.typography.titleLarge,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                    Spacer(modifier = Modifier.weight(1f))
                                     GameWiseSearchBar(
                                         onNavigate = { route ->
                                             navController.navigate(route) {
@@ -190,14 +187,11 @@ fun MainContainer() {
                                             }
                                         }
                                     )
-
                                     Spacer(modifier = Modifier.weight(1f))
-
                                     Box {
                                         val currentUser = user
                                         IconButton(onClick = { showProfileMenu = true }) {
                                             if (currentUser?.photoUrl != null) {
-                                                // Use a key to force refresh
                                                 val imageKey = remember(currentUser.photoUrl) {
                                                     "${currentUser.photoUrl}?t=${System.currentTimeMillis()}"
                                                 }
@@ -244,32 +238,57 @@ fun MainContainer() {
                                         }
                                     }
                                 }
-                            }
-                        },
-                        navigationIcon = {
-                            if (showDrawer) {
+                            },
+                            navigationIcon = {
                                 IconButton(onClick = { scope.launch { drawerState.open() } }) {
                                     Icon(Icons.Default.Menu, contentDescription = "Menu", tint = Color.White)
                                 }
+                            },
+                            colors = TopAppBarDefaults.topAppBarColors(containerColor = GameWisePurple)
+                        )
+                    },
+                    content = content
+                )
+            }
+        } else if (showTopBar) {
+            Scaffold(
+                topBar = {
+                    TopAppBar(
+                        title = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                Icon(
+                                    painter = painterResource(id = R.drawable.alien),
+                                    contentDescription = "Logo",
+                                    tint = Color.Unspecified,
+                                    modifier = Modifier.size(32.dp)
+                                )
+                                Text(
+                                    text = currentTitle,
+                                    color = Color.White,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         },
                         colors = TopAppBarDefaults.topAppBarColors(containerColor = GameWisePurple)
                     )
-                }
-            ) { innerPadding ->
-                Box(modifier = Modifier.padding(innerPadding)) {
-                    GameWiseNavGraph(
-                        navController = navController,
-                        isUserLoggedIn = user != null
-                    )
-                }
-            }
+                },
+                content = content
+            )
+        } else {
+            content(PaddingValues(0.dp))
         }
-    } else {
-        // Show login/signup without drawer
-        GameWiseNavGraph(
-            navController = navController,
-            isUserLoggedIn = user != null
-        )
+    }
+
+    ContentWrapper { innerPadding ->
+        Box(modifier = Modifier.padding(innerPadding)) {
+            GameWiseNavGraph(
+                navController = navController,
+                startDestination = if (user != null) Screen.Home.route else Screen.Login.route
+            )
+        }
     }
 }

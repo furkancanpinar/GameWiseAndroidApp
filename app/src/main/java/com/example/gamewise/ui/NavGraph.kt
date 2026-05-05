@@ -25,12 +25,11 @@ sealed class Screen(val route: String) {
 @Composable
 fun GameWiseNavGraph(
     navController: NavHostController,
-    startDestination: String = Screen.Login.route,
-    isUserLoggedIn: Boolean = false
+    startDestination: String = Screen.Login.route
 ) {
     NavHost(
         navController = navController,
-        startDestination = if (isUserLoggedIn) Screen.Home.route else startDestination
+        startDestination = startDestination
     ) {
         composable(Screen.Login.route) {
             LoginScreen(

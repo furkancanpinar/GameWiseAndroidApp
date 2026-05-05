@@ -20,40 +20,72 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.gamewise.ui.viewmodels.ProfileViewModel
+import com.example.gamewise.data.auth.AuthRepository
 import com.example.gamewise.ui.theme.GameWisePurple
 import kotlinx.coroutines.launch
 
 @Composable
 fun ProfileScreen(
-    onSignOut: () -> Unit,
-    viewModel: ProfileViewModel = viewModel()
+    onSignOut: () -> Unit
 ) {
-    // Correctly observe StateFlow with lifecycle awareness
-    val uiState by viewModel.uiState.collectAsState()
+    val authRepository = remember { AuthRepository() }
+    val user by authRepository.observeUser().collectAsState(initial = authRepository.getCurrentUser())
+    val scope = rememberCoroutineScope()
 
-    var editingName by remember { mutableStateOf("") }
+    var displayName by remember { mutableStateOf(user?.displayName ?: "") }
+    var photoUri by remember { mutableStateOf<Uri?>(user?.photoUrl) }
+    var isUploading by remember { mutableStateOf(false) }
     var isEditingName by remember { mutableStateOf(false) }
+    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    LaunchedEffect(uiState.errorMessage) {
-        uiState.errorMessage?.let {
+    // Sync state with user data when it changes externally
+    LaunchedEffect(user) {
+        if (!isEditingName) {
+            displayName = user?.displayName ?: ""
+        }
+        if (!isUploading) {
+            photoUri = user?.photoUrl
+        }
+    }
+
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
             snackbarHostState.showSnackbar(it)
-            viewModel.clearError()
+            errorMessage = null
         }
     }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        uri?.let { viewModel.uploadProfileImage(it) }
+        uri?.let {
+            isUploading = true
+            scope.launch {
+                val uploadResult = authRepository.uploadProfileImage(it)
+                if (uploadResult.isSuccess) {
+                    val downloadUrl = uploadResult.getOrThrow()
+                    val updateResult = authRepository.updateProfile(null, downloadUrl)
+
+                    if (updateResult.isSuccess) {
+                        // Add a timestamp to the URI to force Coil to reload the image from the network
+                        val bustedUri = Uri.parse(downloadUrl.toString() + "&t=${System.currentTimeMillis()}")
+                        photoUri = bustedUri
+                    } else {
+                        errorMessage = "Profile update failed: ${updateResult.exceptionOrNull()?.message}"
+                    }
+                } else {
+                    errorMessage = "Upload failed: ${uploadResult.exceptionOrNull()?.message}"
+                }
+                isUploading = false
+            }
+        }
     }
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        containerColor = Color.Transparent
+        containerColor = Color.Transparent // If you want to use the parent's background
     ) { padding ->
         Column(
             modifier = Modifier
@@ -62,25 +94,31 @@ fun ProfileScreen(
                 .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Box(
-                modifier = Modifier
-                    .size(120.dp)
-                    .clickable { imagePickerLauncher.launch("image/*") },
-                contentAlignment = Alignment.BottomEnd
-            ) {
-                // AsyncImage reloads instantly because uiState.photoUrl changes with timestamp
+        Box(
+            modifier = Modifier
+                .size(120.dp)
+                .clickable { imagePickerLauncher.launch("image/*") },
+            contentAlignment = Alignment.BottomEnd
+        ) {
+            if (photoUri != null) {
                 AsyncImage(
-                    model = uiState.photoUrl,
+                    model = photoUri,
                     contentDescription = "Profile Picture",
-                    placeholder = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_menu_gallery),
-                    error = androidx.compose.ui.res.painterResource(id = android.R.drawable.ic_menu_report_image),
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape),
                     contentScale = ContentScale.Crop
                 )
+            } else {
+                Icon(
+                    imageVector = Icons.Default.AccountCircle,
+                    contentDescription = "Profile Picture",
+                    modifier = Modifier.fillMaxSize(),
+                    tint = GameWisePurple
+                )
+            }
 
-            if (uiState.isUploading) {
+            if (isUploading) {
                 CircularProgressIndicator(
                     modifier = Modifier.matchParentSize(),
                     color = GameWisePurple
@@ -109,14 +147,16 @@ fun ProfileScreen(
         ) {
             if (isEditingName) {
                 OutlinedTextField(
-                    value = editingName,
-                    onValueChange = { editingName = it },
+                    value = displayName,
+                    onValueChange = { displayName = it },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     trailingIcon = {
                         IconButton(onClick = {
-                            viewModel.updateDisplayName(editingName)
-                            isEditingName = false
+                            scope.launch {
+                                authRepository.updateProfile(displayName, null)
+                                isEditingName = false
+                            }
                         }) {
                             Icon(Icons.Default.Check, contentDescription = "Save Name", tint = Color.Green)
                         }
@@ -124,15 +164,12 @@ fun ProfileScreen(
                 )
             } else {
                 Text(
-                    text = if (uiState.displayName.isNotBlank()) uiState.displayName else "Set Username",
+                    text = if (displayName.isNotBlank()) displayName else "Set Username",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = GameWisePurple
                 )
-                IconButton(onClick = {
-                    editingName = uiState.displayName
-                    isEditingName = true
-                }) {
+                IconButton(onClick = { isEditingName = true }) {
                     Icon(Icons.Default.Edit, contentDescription = "Edit Name", modifier = Modifier.size(20.dp), tint = Color.Gray)
                 }
             }
@@ -153,7 +190,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text("Email Address", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-                    Text(uiState.user?.email ?: "Not available", style = MaterialTheme.typography.bodyLarge)
+                    Text(user?.email ?: "Not available", style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -173,7 +210,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text("User ID", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-                    Text(uiState.user?.uid ?: "Not available", style = MaterialTheme.typography.bodyLarge)
+                    Text(user?.uid ?: "Not available", style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -182,7 +219,7 @@ fun ProfileScreen(
 
         Button(
             onClick = {
-                // Sign out logic should probably move to ViewModel too
+                authRepository.logout()
                 onSignOut()
             },
             modifier = Modifier.fillMaxWidth(),

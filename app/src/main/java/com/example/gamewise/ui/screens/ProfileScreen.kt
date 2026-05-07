@@ -20,40 +20,30 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import coil.compose.AsyncImage
-import com.example.gamewise.data.auth.AuthRepository
 import com.example.gamewise.ui.theme.GameWisePurple
-import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.gamewise.ui.viewmodels.ProfileViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import coil.request.ImageRequest
 
 @Composable
 fun ProfileScreen(
-    onSignOut: () -> Unit
+    onSignOut: () -> Unit,
+    viewModel: ProfileViewModel = viewModel()
 ) {
-    val authRepository = remember { AuthRepository() }
-    val user by authRepository.observeUser().collectAsState(initial = authRepository.getCurrentUser())
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
 
-    var displayName by remember { mutableStateOf(user?.displayName ?: "") }
-    var photoUri by remember { mutableStateOf<Uri?>(user?.photoUrl) }
-    var isUploading by remember { mutableStateOf(false) }
+    var editingName by remember { mutableStateOf("") }
     var isEditingName by remember { mutableStateOf(false) }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     val snackbarHostState = remember { SnackbarHostState() }
 
-    // Sync state with user data when it changes externally
-    LaunchedEffect(user) {
-        if (!isEditingName) {
-            displayName = user?.displayName ?: ""
-        }
-        if (!isUploading) {
-            photoUri = user?.photoUrl
-        }
-    }
-
-    LaunchedEffect(errorMessage) {
-        errorMessage?.let {
+    LaunchedEffect(uiState.errorMessage) {
+        uiState.errorMessage?.let {
             snackbarHostState.showSnackbar(it)
-            errorMessage = null
+            viewModel.clearError()
         }
     }
 
@@ -61,25 +51,7 @@ fun ProfileScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         uri?.let {
-            isUploading = true
-            scope.launch {
-                val uploadResult = authRepository.uploadProfileImage(it)
-                if (uploadResult.isSuccess) {
-                    val downloadUrl = uploadResult.getOrThrow()
-                    val updateResult = authRepository.updateProfile(null, downloadUrl)
-
-                    if (updateResult.isSuccess) {
-                        // Add a timestamp to the URI to force Coil to reload the image from the network
-                        val bustedUri = Uri.parse(downloadUrl.toString() + "&t=${System.currentTimeMillis()}")
-                        photoUri = bustedUri
-                    } else {
-                        errorMessage = "Profile update failed: ${updateResult.exceptionOrNull()?.message}"
-                    }
-                } else {
-                    errorMessage = "Upload failed: ${uploadResult.exceptionOrNull()?.message}"
-                }
-                isUploading = false
-            }
+            viewModel.uploadProfileImage(it)
         }
     }
 
@@ -100,13 +72,24 @@ fun ProfileScreen(
                 .clickable { imagePickerLauncher.launch("image/*") },
             contentAlignment = Alignment.BottomEnd
         ) {
-            if (photoUri != null) {
+            if (uiState.photoUrl != null) {
                 AsyncImage(
-                    model = photoUri,
+                    model = ImageRequest.Builder(LocalContext.current)
+                        .data(uiState.photoUrl)
+                        .crossfade(true)
+
+                        // ✅ ONLY use unique cache keys
+                        .memoryCacheKey(uiState.photoUrl ?: "")
+                        .diskCacheKey(uiState.photoUrl ?: "")
+
+                        .build(),
+
                     contentDescription = "Profile Picture",
+
                     modifier = Modifier
                         .fillMaxSize()
                         .clip(CircleShape),
+
                     contentScale = ContentScale.Crop
                 )
             } else {
@@ -118,7 +101,7 @@ fun ProfileScreen(
                 )
             }
 
-            if (isUploading) {
+            if (uiState.isUploading) {
                 CircularProgressIndicator(
                     modifier = Modifier.matchParentSize(),
                     color = GameWisePurple
@@ -147,16 +130,14 @@ fun ProfileScreen(
         ) {
             if (isEditingName) {
                 OutlinedTextField(
-                    value = displayName,
-                    onValueChange = { displayName = it },
+                    value = editingName,
+                    onValueChange = { editingName = it },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     trailingIcon = {
                         IconButton(onClick = {
-                            scope.launch {
-                                authRepository.updateProfile(displayName, null)
-                                isEditingName = false
-                            }
+                            viewModel.updateDisplayName(editingName)
+                            isEditingName = false
                         }) {
                             Icon(Icons.Default.Check, contentDescription = "Save Name", tint = Color.Green)
                         }
@@ -164,12 +145,15 @@ fun ProfileScreen(
                 )
             } else {
                 Text(
-                    text = if (displayName.isNotBlank()) displayName else "Set Username",
+                    text = if (uiState.displayName.isNotBlank()) uiState.displayName else "Set Username",
                     fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
                     color = GameWisePurple
                 )
-                IconButton(onClick = { isEditingName = true }) {
+                IconButton(onClick = { 
+                    editingName = uiState.displayName
+                    isEditingName = true 
+                }) {
                     Icon(Icons.Default.Edit, contentDescription = "Edit Name", modifier = Modifier.size(20.dp), tint = Color.Gray)
                 }
             }
@@ -190,7 +174,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text("Email Address", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-                    Text(user?.email ?: "Not available", style = MaterialTheme.typography.bodyLarge)
+                    Text(uiState.user?.email ?: "Not available", style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -210,7 +194,7 @@ fun ProfileScreen(
                 Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text("User ID", style = MaterialTheme.typography.labelMedium, color = Color.Gray)
-                    Text(user?.uid ?: "Not available", style = MaterialTheme.typography.bodyLarge)
+                    Text(uiState.user?.uid ?: "Not available", style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -219,7 +203,6 @@ fun ProfileScreen(
 
         Button(
             onClick = {
-                authRepository.logout()
                 onSignOut()
             },
             modifier = Modifier.fillMaxWidth(),

@@ -1,11 +1,13 @@
 package com.example.gamewise.ui.components
 
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -62,25 +65,39 @@ fun GameWiseSearchBar(
     }
 
     Column(modifier = modifier) {
-        OutlinedTextField(
+        BasicTextField(
             value = query,
-            onValueChange = { 
+            onValueChange = {
                 query = it
                 active = it.isNotEmpty()
             },
-            modifier = Modifier
-                .width(300.dp)
-                .height(50.dp),
-            placeholder = { Text("Search...", color = Color.Gray) },
-            trailingIcon = { Icon(Icons.Default.Search, contentDescription = null, tint = Color.Gray) },
-            colors = OutlinedTextFieldDefaults.colors(
-                focusedContainerColor = Color.White,
-                unfocusedContainerColor = Color.White,
-                focusedBorderColor = Color.Transparent,
-                unfocusedBorderColor = Color.Transparent
-            ),
-            shape = RoundedCornerShape(25.dp),
-            singleLine = true
+            modifier = modifier
+                .height(35.dp)
+                .background(Color.White, RoundedCornerShape(25.dp)),
+            textStyle = MaterialTheme.typography.bodyMedium.copy(color = Color.Black),
+            singleLine = true,
+            cursorBrush = SolidColor(Color.Black),
+            decorationBox = { innerTextField ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (query.isEmpty()) {
+                            Text("Search...", color = Color.Gray, style = MaterialTheme.typography.bodyMedium)
+                        }
+                        innerTextField()
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Search,
+                        contentDescription = null,
+                        tint = Color.Gray,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
         )
 
         if (active && filteredResults.isNotEmpty()) {

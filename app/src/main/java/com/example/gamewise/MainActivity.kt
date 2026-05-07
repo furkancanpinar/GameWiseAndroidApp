@@ -15,13 +15,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.example.gamewise.data.auth.AuthRepository
 import com.example.gamewise.ui.components.GameWiseSearchBar
 import com.example.gamewise.ui.GameWiseNavGraph
@@ -136,10 +139,14 @@ fun MainContainer() {
                                 label = { Text(title) },
                                 selected = currentRoute == route,
                                 onClick = {
-                                    navController.navigate(route) {
-                                        popUpTo(Screen.Home.route) { saveState = true }
-                                        launchSingleTop = true
-                                        restoreState = true
+                                    if (currentRoute != route) {
+                                        navController.navigate(route) {
+                                            popUpTo(navController.graph.findStartDestination().id) {
+                                                saveState = true
+                                            }
+                                            launchSingleTop = true
+                                            restoreState = true
+                                        }
                                     }
                                     scope.launch { drawerState.close() }
                                 },
@@ -171,32 +178,37 @@ fun MainContainer() {
                                         tint = Color.Unspecified,
                                         modifier = Modifier.size(32.dp)
                                     )
-                                    Text(
-                                        text = currentTitle,
-                                        color = Color.White,
-                                        style = MaterialTheme.typography.titleLarge,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            },
+                            actions = {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    modifier = Modifier.padding(end = 8.dp)
+                                ) {
                                     GameWiseSearchBar(
+                                        modifier = Modifier.width(220.dp),
                                         onNavigate = { route ->
                                             navController.navigate(route) {
-                                                popUpTo(Screen.Home.route) { saveState = true }
+                                                popUpTo(navController.graph.findStartDestination().id) {
+                                                    saveState = true
+                                                }
                                                 launchSingleTop = true
                                                 restoreState = true
                                             }
                                         }
                                     )
-                                    Spacer(modifier = Modifier.weight(1f))
                                     Box {
                                         val currentUser = user
                                         IconButton(onClick = { showProfileMenu = true }) {
                                             if (currentUser?.photoUrl != null) {
-                                                val imageKey = remember(currentUser.photoUrl) {
-                                                    "${currentUser.photoUrl}?t=${System.currentTimeMillis()}"
-                                                }
                                                 AsyncImage(
-                                                    model = imageKey,
+                                                    model = ImageRequest.Builder(LocalContext.current)
+                                                        .data(currentUser.photoUrl)
+                                                        .crossfade(true)
+                                                        .memoryCacheKey(currentUser.photoUrl.toString())
+                                                        .diskCacheKey(currentUser.photoUrl.toString())
+                                                        .build(),
                                                     contentDescription = "Profile",
                                                     modifier = Modifier
                                                         .size(32.dp)
@@ -207,7 +219,7 @@ fun MainContainer() {
                                                 Icon(
                                                     imageVector = Icons.Default.AccountCircle,
                                                     contentDescription = "Profile",
-                                                    tint = Color.Black,
+                                                    tint = Color.White,
                                                     modifier = Modifier.size(32.dp)
                                                 )
                                             }
@@ -264,12 +276,6 @@ fun MainContainer() {
                                     contentDescription = "Logo",
                                     tint = Color.Unspecified,
                                     modifier = Modifier.size(32.dp)
-                                )
-                                Text(
-                                    text = currentTitle,
-                                    color = Color.White,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold
                                 )
                             }
                         },
